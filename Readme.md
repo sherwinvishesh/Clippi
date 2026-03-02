@@ -2,8 +2,6 @@
 
 **Clippi** is an advanced, AI-driven video editing and clipping platform. It combines modern web technologies with state-of-the-art machine learning models like **SAM2 (Segment Anything Model 2)** and **Mistral AI** to provide a seamless, chat-interactive video editing experience.
 
----
-
 ## 🚀 Overview
 
 Clippi allows users to transform long-form video content into optimized clips. It features a robust backend for heavy-duty video processing and a high-performance frontend for real-time editing and visualization.
@@ -16,7 +14,6 @@ Clippi allows users to transform long-form video content into optimized clips. I
 * **Interactive Editor:** A custom-built React editor featuring a node-based workflow (Xyflow) and Remotion-powered video previews.
 * **Scalable Processing:** Designed to run heavy GPU workloads on Brev.dev (Nvidia A100/H100) while maintaining a lightweight local frontend.
 
----
 
 ## 🛠️ Tech Stack
 
@@ -36,7 +33,6 @@ Clippi allows users to transform long-form video content into optimized clips. I
 * **State Management:** Zustand
 * **Interactive UI:** Xyflow/React (Nodes), Framer Motion (Animations), Lucide React (Icons)
 
----
 
 ## 📁 Project Structure
 
@@ -61,7 +57,6 @@ Clippi/
 
 ```
 
----
 
 ## ⚙️ Installation & Setup
 
@@ -99,7 +94,6 @@ WANDB_API_KEY=your_key_here
 
 ```
 
----
 
 ## 🏃 Running the Application
 
@@ -121,8 +115,6 @@ Clippi is optimized for remote GPU execution. To run the backend on a Brev insta
 ./run_server_on_brev.sh
 
 ```
-
----
 
 ## 🛰️ API Endpoints
 
