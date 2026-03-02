@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Optional, List
 import os, json, uuid, asyncio, sys
+import weave
 from pathlib import Path
 from dotenv import load_dotenv
 from app import visual_jobs
@@ -689,6 +690,7 @@ def _effect_label(effect_type: str, params: dict) -> str:
     return effect_type.replace("_", " ").title()
 
 
+@weave.op()
 def _run_visual_ai_worker(job_id: str, clip_id: str, tool_args: dict):
     """
     Runs in a background thread.
@@ -817,6 +819,7 @@ def _run_visual_ai_worker(job_id: str, clip_id: str, tool_args: dict):
     }
 
 
+@weave.op()
 def execute_video_ai_tool(clip_id: str, tool_args: dict) -> list:
     """
     Fires a background job and returns immediately with a polling action.
@@ -843,6 +846,7 @@ def execute_video_ai_tool(clip_id: str, tool_args: dict) -> list:
 
 # ─── Audio tool execution ──────────────────────────────────────────────────────
 
+@weave.op()
 async def execute_audio_tool(fn_name: str, fn_args: dict, active_clip_id: Optional[str]) -> list:
     """Execute an ElevenLabs audio tool and return frontend actions."""
     if not AUDIO_AVAILABLE:
@@ -990,6 +994,29 @@ async def execute_audio_tool(fn_name: str, fn_args: dict, active_clip_id: Option
 
     return []
 
+# ─── Traced per-tool dispatch ────────────────────────────────────────────────
+
+@weave.op()
+async def _dispatch_tool_call(
+    fn_name: str, fn_args: dict, active_clip_id: Optional[str]
+) -> dict:
+    """Trace and execute a single MCP tool call. Returns actions list + success flag."""
+    if fn_name in AUDIO_TOOL_NAMES:
+        audio_actions = await execute_audio_tool(fn_name, fn_args, active_clip_id)
+        return {"actions": audio_actions, "success": len(audio_actions) > 0}
+
+    elif fn_name in VISUAL_AI_TOOL_NAMES:
+        clip_id = fn_args.get("clip_id") or active_clip_id
+        if clip_id:
+            visual_actions = execute_video_ai_tool(clip_id, fn_args)
+            return {"actions": visual_actions, "success": len(visual_actions) > 0}
+        return {"actions": [], "success": False}
+
+    else:
+        action = tool_to_action(fn_name, fn_args, active_clip_id)
+        return {"actions": [action] if action else [], "success": action is not None}
+
+
 # ─── Main chat endpoint ───────────────────────────────────────────────────────
 
 @router.post("/chat")
@@ -1037,34 +1064,13 @@ async def chat(body: ChatRequest):
                 except (json.JSONDecodeError, TypeError):
                     fn_args = {}
 
-                success = True
-
-                if fn_name in AUDIO_TOOL_NAMES:
-                    # ── Audio tool: execute server-side ──────────────────────
-                    audio_actions = await execute_audio_tool(fn_name, fn_args, active_clip_id)
-                    actions.extend(audio_actions)
-                    success = len(audio_actions) > 0
-
-                elif fn_name in VISUAL_AI_TOOL_NAMES:
-                    # ── Visual AI tool: fire background job immediately ───────
-                    clip_id = fn_args.get("clip_id") or active_clip_id
-                    if clip_id:
-                        visual_actions = execute_video_ai_tool(clip_id, fn_args)
-                        actions.extend(visual_actions)
-                        success = len(visual_actions) > 0
-                    else:
-                        success = False
-
-                else:
-                    # ── Visual/navigation tool: convert to frontend action ────
-                    action = tool_to_action(fn_name, fn_args, active_clip_id)
-                    if action:
-                        actions.append(action)
+                result = await _dispatch_tool_call(fn_name, fn_args, active_clip_id)
+                actions.extend(result["actions"])
 
                 tool_result_messages.append({
                     "role": "tool",
                     "tool_call_id": tc.id,
-                    "content": json.dumps({"success": success, "executed": fn_name})
+                    "content": json.dumps({"success": result["success"], "executed": fn_name})
                 })
 
             assistant_msg = {

@@ -1,8 +1,8 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import health, clips, chat, audio, jobs
 from app.routers.export import router as export_router
-
 
 
 app = FastAPI(
@@ -10,6 +10,15 @@ app = FastAPI(
     description="AI-powered video clipping engine",
     version="0.3.0",
 )
+
+
+@app.on_event("startup")
+async def _init_weave():
+    wb_key = os.getenv("WANDB_API_KEY", "")
+    if wb_key:
+        import weave
+        weave.init("clippi")
+        print("[weave] Initialized — tool calls will be traced to W&B project 'clippi'")
 
 app.add_middleware(
     CORSMiddleware,

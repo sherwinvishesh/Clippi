@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import torch
 from transformers import SegformerImageProcessor, AutoModelForSemanticSegmentation
+from transformers.utils.logging import disable_progress_bar, enable_progress_bar
 from PIL import Image
 
 # Mapping user descriptions to model labels
@@ -52,8 +53,10 @@ def get_masks_for_video(frames: list, object_description: str) -> tuple[dict[int
     print(f"  SegFormer targeting labels: {target_labels} for '{object_description}'")
     
     print("  Loading SegFormer model...")
+    disable_progress_bar()
     processor = SegformerImageProcessor.from_pretrained("mattmdjaga/segformer_b2_clothes")
     model = AutoModelForSemanticSegmentation.from_pretrained("mattmdjaga/segformer_b2_clothes")
+    enable_progress_bar()
     
     if torch.cuda.is_available():
         device = "cuda"

@@ -9,6 +9,7 @@ on a single blocking HTTP request that would time-out after 60 s.
 import uuid
 import threading
 import traceback
+import contextvars
 from datetime import datetime
 from typing import Callable, Optional
 
@@ -47,11 +48,17 @@ def start_job_thread(job_id: str, fn: Callable, *args, **kwargs):
     Run *fn* in a daemon thread, automatically updating the job record when
     it finishes (or crashes).  *fn* receives *job_id* as its first argument
     so it can call update_progress() during processing.
+
+    contextvars.copy_context() snapshots the current context (including the
+    active weave call stack) so @weave.op() traces created inside the thread
+    appear as children of the dispatching tool call rather than as orphaned roots.
     """
+    ctx = contextvars.copy_context()
+
     def _run():
         _set(job_id, status=RUNNING, progress="Starting Visual AI pipeline…")
         try:
-            result = fn(job_id, *args, **kwargs)
+            result = ctx.run(fn, job_id, *args, **kwargs)
             _set(job_id, status=COMPLETE, result=result, progress="Done ✓")
         except Exception as exc:
             _set(job_id, status=FAILED, error=str(exc),
